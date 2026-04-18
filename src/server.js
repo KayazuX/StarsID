@@ -12,6 +12,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const {
   PORT = '8080',
+  HOST = '0.0.0.0',
   TMDB_API_KEY = '',
   GEMINI_API_KEY = '',
   GEMINI_MODEL = 'models/gemini-2.5-flash',
@@ -19,7 +20,7 @@ const {
 
 if (!TMDB_API_KEY || !GEMINI_API_KEY) {
   // eslint-disable-next-line no-console
-  console.warn('TMDB_API_KEY ou GEMINI_API_KEY manquante dans backend/.env');
+  console.warn('TMDB_API_KEY ou GEMINI_API_KEY manquante dans l environnement runtime');
 }
 
 const tmdb = axios.create({
@@ -39,8 +40,26 @@ const normalizeMediaType = (mediaType) => {
   return null;
 };
 
+app.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'stars-id-proxy',
+    message: 'Stars ID backend is running.',
+  });
+});
+
 app.get('/health', (req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    service: 'stars-id-proxy',
+    runtime: {
+      host: HOST,
+      port: PORT,
+      hasTmdbKey: TMDB_API_KEY.length > 0,
+      hasGeminiKey: GEMINI_API_KEY.length > 0,
+      geminiModel: GEMINI_MODEL,
+    },
+  });
 });
 
 app.get('/api/actors/search', async (req, res) => {
@@ -541,7 +560,7 @@ app.get('/api/works/:mediaType/:id/similar', async (req, res) => {
   }
 });
 
-app.listen(parseInt(PORT, 10), () => {
+app.listen(parseInt(PORT, 10), HOST, () => {
   // eslint-disable-next-line no-console
-  console.log(`Stars ID proxy running on http://localhost:${PORT}`);
+  console.log(`Stars ID proxy running on http://${HOST}:${PORT}`);
 });
