@@ -12,11 +12,13 @@ app.use(express.json({ limit: '10mb' }));
 
 const {
   PORT = '8080',
-  HOST = '0.0.0.0',
   TMDB_API_KEY = '',
   GEMINI_API_KEY = '',
   GEMINI_MODEL = 'models/gemini-2.5-flash',
 } = process.env;
+
+const runtimeHost = '0.0.0.0';
+const runtimePort = Number.parseInt(String(PORT), 10) || 8080;
 
 if (!TMDB_API_KEY || !GEMINI_API_KEY) {
   // eslint-disable-next-line no-console
@@ -53,8 +55,8 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'stars-id-proxy',
     runtime: {
-      host: HOST,
-      port: PORT,
+      host: runtimeHost,
+      port: runtimePort,
       hasTmdbKey: TMDB_API_KEY.length > 0,
       hasGeminiKey: GEMINI_API_KEY.length > 0,
       geminiModel: GEMINI_MODEL,
@@ -560,7 +562,7 @@ app.get('/api/works/:mediaType/:id/similar', async (req, res) => {
   }
 });
 
-app.listen(parseInt(PORT, 10), HOST, () => {
+app.listen(runtimePort, runtimeHost, () => {
   // eslint-disable-next-line no-console
-  console.log(`Stars ID proxy running on http://${HOST}:${PORT}`);
+  console.log(`Stars ID proxy running on http://${runtimeHost}:${runtimePort}`);
 });
