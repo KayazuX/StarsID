@@ -393,6 +393,7 @@ app.get('/api/actors/:id/works', async (req, res) => {
           title,
           year,
           poster_url: toImageUrl(item.poster_path, 'w342'),
+          vote_average: item.vote_average || 0,
         };
       })
       .sort((a, b) => {
@@ -510,6 +511,7 @@ app.get('/api/works/:mediaType/:id/details', async (req, res) => {
       trailer_url: trailer?.key ? `https://www.youtube.com/watch?v=${trailer.key}` : null,
       watch_providers: watchProviders,
       cast: mappedCast,
+      vote_average: details.vote_average || 0,
     });
   } catch (error) {
     return res.status(502).json({ message: 'Erreur proxy TMDB detail oeuvre.' });
@@ -559,6 +561,125 @@ app.get('/api/works/:mediaType/:id/similar', async (req, res) => {
     });
   } catch (error) {
     return res.status(502).json({ message: 'Erreur proxy TMDB oeuvres similaires.' });
+  }
+});
+
+app.get('/api/works/tv/:id/seasons', async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const includeSpecials = String(req.query.include_specials || 'false').toLowerCase() === 'true';
+
+    if (!id) {
+      return res.status(400).json({ message: 'id manquant' });
+    }
+
+    const detailsResponse = await tmdb.get(`/tv/${id}`, {
+      params: {
+        api_key: TMDB_API_KEY,
+        language: 'fr-FR',
+      },
+    });
+
+    const details = detailsResponse.data || {};
+    const baseSeasons = Array.isArray(details.seasons) ? details.seasons : [];
+    const seasonsToFetch = baseSeasons
+      .filter((season) => includeSpecials || Number(season?.season_number || 0) > 0)
+      .map((season) => ({
+        season_number: Number(season?.season_number || 0),
+        name: season?.name || null,
+        episode_count: Number(season?.episode_count || 0),
+        air_date: season?.air_date || null,
+      }))
+      .sort((a, b) => a.season_number - b.season_number);
+
+    const seasons = await Promise.all(seasonsToFetch.map(async (season) => {
+      const seasonDetailsResponse = await tmdb.get(`/tv/${id}/season/${season.season_number}`, {
+        params: {
+          api_key: TMDB_API_KEY,
+          language: 'fr-FR',
+        },
+      });
+
+      const seasonDetails = seasonDetailsResponse.data || {};
+      const episodes = Array.isArray(seasonDetails.episodes) ? seasonDetails.episodes : [];
+
+      const mappedEpisodes = episodes
+        .map((episode) => ({
+          id: Number(episode?.id || 0),
+          season_number: Number(episode?.season_number || season.season_number),
+          episode_number: Number(episode?.episode_number || 0),
+          name: episode?.name || `Episode ${episode?.episode_number || '?'}`,
+          air_date: episode?.air_date || null,
+          overview: episode?.overview || null,
+          still_url: toImageUrl(episode?.still_path, 'w300'),
+        }))
+        .filter((episode) => episode.episode_number > 0)
+        .sort((a, b) => a.episode_number - b.episode_number);
+
+      return {
+        season_number: season.season_number,
+        name: seasonDetails?.name || season.name || `Saison ${season.season_number}`,
+        air_date: seasonDetails?.air_date || season.air_date,
+        episode_count: seasonDetails?.episodes?.length || season.episode_count,
+        episodes: mappedEpisodes,
+      };
+    }));
+
+    return res.json({
+      series_id: Number(details.id || id),
+      series_name: details.name || null,
+      seasons,
+    });
+  } catch (error) {
+    return res.status(502).json({ message: 'Erreur proxy TMDB saisons/episodes.' });
+  }
+});
+
+app.get('/api/works/:mediaType/:id/monitor', async (req, res) => {
+  try {
+    const mediaType = normalizeMediaType(String(req.params.mediaType || '').trim());
+    const id = String(req.params.id || '').trim();
+
+    if (!mediaType) {
+      return res.status(400).json({ message: 'mediaType invalide (movie|tv).' });
+    }
+    if (!id) {
+      return res.status(400).json({ message: 'id manquant' });
+    }
+
+    const detailsResponse = await tmdb.get(`/${mediaType}/${id}`, {
+      params: {
+        api_key: TMDB_API_KEY,
+        language: 'fr-FR',
+      },
+    });
+
+    const details = detailsResponse.data || {};
+
+    if (mediaType === 'movie') {
+      return res.json({
+        id: Number(details.id || id),
+        media_type: 'movie',
+        title: details.title || details.original_title || 'Titre inconnu',
+        release_date: details.release_date || null,
+        status: details.status || null,
+      });
+    }
+
+    return res.json({
+      id: Number(details.id || id),
+      media_type: 'tv',
+      title: details.name || details.original_name || 'Serie inconnue',
+      number_of_seasons: Number(details.number_of_seasons || 0),
+      number_of_episodes: Number(details.number_of_episodes || 0),
+      next_episode_air_date: details.next_episode_to_air?.air_date || null,
+      last_episode_air_date: details.last_episode_to_air?.air_date || null,
+      last_episode_season_number: Number(details.last_episode_to_air?.season_number || 0),
+      last_episode_number: Number(details.last_episode_to_air?.episode_number || 0),
+      status: details.status || null,
+    });
+  } catch (error) {
+    return res.status(502).json({ message: 'Erreur proxy TMDB monitoring oeuvre.' });
   }
 });
 
