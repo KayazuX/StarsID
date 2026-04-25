@@ -18,7 +18,7 @@ Proxy API Node.js pour Stars ID, intégrant TMDB et Gemini.
 ```
 TMDB_API_KEY=<your-tmdb-key>
 GEMINI_API_KEY=<your-gemini-key>
-GEMINI_MODEL=models/gemini-2.5-flash
+GEMINI_MODEL=models/gemini-2.5-flash-lite
 PORT=8080
 ```
 
