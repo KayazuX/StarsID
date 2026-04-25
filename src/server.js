@@ -14,7 +14,7 @@ const {
   PORT = '8080',
   TMDB_API_KEY = '',
   GEMINI_API_KEY = '',
-  GEMINI_MODEL = 'models/gemini-2.5-flash',
+  GEMINI_MODEL = 'models/gemini-2.5-flash-lite',
 } = process.env;
 
 const runtimeHost = '0.0.0.0';
